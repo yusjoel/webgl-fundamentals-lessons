@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>3D正射投影 - 步骤1</title>
+<link type="text/css" href="../../common/webgl-tutorials.css" rel="stylesheet" />
+</head>
+<body>
+
+<canvas id="canvas"></canvas>
+<div id="uiContainer">
+  <div id="ui">
+    <div id="x"></div>
+    <div id="y"></div>
+    <div id="z"></div>
+    <div id="angleX"></div>
+    <div id="angleY"></div>
+    <div id="angleZ"></div>
+    <div id="scaleX"></div>
+    <div id="scaleY"></div>
+    <div id="scaleZ"></div>
+  </div>
+</div>
+</body>
+<!-- vertex shader -->
+<script id="3d-vertex-shader" type="x-shader/x-vertex">
+attribute vec4 a_position;
+
+uniform mat4 u_matrix;
+
+void main() {
+  gl_Position = u_matrix * a_position;
+}
+</script>
+<!-- fragment shader -->
+<script id="3d-fragment-shader" type="x-shader/x-fragment">
+precision mediump float;
+
+uniform vec4 u_color;
+
+void main() {
+   gl_FragColor = u_color;
+}
+</script>
+
+<script src="../../common/webgl-utils.js"></script>
+<script src="../../common/webgl-lessons-ui.js"></script>
+<script src="webgl-3d-orthographic1.js"></script>
+</html>

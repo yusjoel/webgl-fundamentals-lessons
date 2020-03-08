@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>绕中心旋转</title>
+<link type="text/css" href="../../common/webgl-tutorials.css" rel="stylesheet" />
+</head>
+<body>
+
+<canvas id="canvas"></canvas>
+<div id="uiContainer">
+  <div id="ui">
+    <div id="x"></div>
+    <div id="y"></div>
+    <div id="angle"></div>
+    <div id="scaleX"></div>
+    <div id="scaleY"></div>
+  </div>
+</div>
+</body>
+<!-- vertex shader -->
+<script id="2d-vertex-shader" type="x-shader/x-vertex">
+attribute vec2 a_position;
+
+uniform vec2 u_resolution;
+uniform mat3 u_matrix;
+
+void main() {
+  // Add in the translation.
+  vec2 position = (u_matrix * vec3(a_position, 1)).xy;
+
+   // convert the position from pixels to 0.0 to 1.0
+   vec2 zeroToOne = position / u_resolution;
+
+   // convert from 0->1 to 0->2
+   vec2 zeroToTwo = zeroToOne * 2.0;
+
+   // convert from 0->2 to -1->+1 (clipspace)
+   vec2 clipSpace = zeroToTwo - 1.0;
+
+   gl_Position = vec4(clipSpace * vec2(1, -1), 0, 1);
+}
+</script>
+<!-- fragment shader -->
+<script id="2d-fragment-shader" type="x-shader/x-fragment">
+precision mediump float;
+
+uniform vec4 u_color;
+
+void main() {
+   gl_FragColor = u_color;
+}
+</script>
+
+<script src="../../common/webgl-utils.js"></script>
+<script src="../../common/webgl-lessons-ui.js"></script>
+<script src="../../common/m3.js"></script>
+<script src="webgl-2d-matrices3.js"></script>
+</html>

@@ -1,0 +1,166 @@
+"use strict";
+
+function main() {
+    // Get A WebGL context
+    /** @type {HTMLCanvasElement} */
+    var canvas = document.getElementById("canvas");
+    var gl = canvas.getContext("webgl");
+    if (!gl) {
+        return;
+    }
+
+    // setup GLSL program
+    var program = webglUtils.createProgramFromScripts(gl, ["2d-vertex-shader", "2d-fragment-shader"]);
+    gl.useProgram(program);
+
+    // look up where the vertex data needs to go.
+    var positionLocation = gl.getAttribLocation(program, "a_position");
+
+    // lookup uniforms
+    var colorLocation = gl.getUniformLocation(program, "u_color");
+    var matrixLocation = gl.getUniformLocation(program, "u_matrix");
+
+    // Create a buffer to put positions in
+    var positionBuffer = gl.createBuffer();
+    // Bind it to ARRAY_BUFFER (think of it as ARRAY_BUFFER = positionBuffer)
+    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+    // Put geometry data into buffer
+    setGeometry(gl);
+
+  var translation = [100, 150];
+  var rotation = [1, 0];
+  var angleInRadians = 0;
+  var scale = [1, 1];
+  var color = [Math.random(), Math.random(), Math.random(), 1];
+
+    drawScene();
+
+  // Setup a ui.
+  webglLessonsUI.setupSlider("#x", {value: translation[0], slide: updatePosition(0), max: gl.canvas.width });
+  webglLessonsUI.setupSlider("#y", {value: translation[1], slide: updatePosition(1), max: gl.canvas.height});
+  webglLessonsUI.setupSlider("#angle", {slide: updateAngle, max: 360});
+  webglLessonsUI.setupSlider("#scaleX", {value: scale[0], slide: updateScale(0), min: -5, max: 5, step: 0.01, precision: 2 });
+  webglLessonsUI.setupSlider("#scaleY", {value: scale[1], slide: updateScale(1), min: -5, max: 5, step: 0.01, precision: 2 });
+
+  function updatePosition(index) {
+    return function(event, ui) {
+      translation[index] = ui.value;
+      drawScene();
+    };
+  }
+
+  function updateAngle(event, ui) {
+    var angleInDegrees = ui.value;
+    angleInRadians = angleInDegrees * Math.PI / 180;
+    rotation[0] = Math.cos(angleInRadians);
+    rotation[1] = Math.sin(angleInRadians);
+    drawScene();
+  }
+
+    function updateScale(index) {
+        return function(event, ui) {
+            scale[index] = ui.value;
+            drawScene();
+        };
+    }
+
+    // Draw the scene.
+    function drawScene() {
+        webglUtils.resizeCanvasToDisplaySize(gl.canvas);
+
+        // Tell WebGL how to convert from clip space to pixels
+        gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+
+        // Clear the canvas.
+        gl.clear(gl.COLOR_BUFFER_BIT);
+
+        // Tell it to use our program (pair of shaders)
+        gl.useProgram(program);
+
+        // Turn on the attribute
+        gl.enableVertexAttribArray(positionLocation);
+
+        // Bind the position buffer.
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+
+        // Tell the attribute how to get data out of positionBuffer (ARRAY_BUFFER)
+        var size = 2;          // 2 components per iteration
+        var type = gl.FLOAT;   // the data is 32bit floats
+        var normalize = false; // don't normalize the data
+        var stride = 0;        // 0 = move forward size * sizeof(type) each iteration to get the next position
+        var offset = 0;        // start at the beginning of the buffer
+        gl.vertexAttribPointer(
+            positionLocation, size, type, normalize, stride, offset);
+
+        // set the color
+        gl.uniform4fv(colorLocation, color);
+
+        // 计算投影矩阵
+        // 从像素坐标转换到 0.0 到 1.0
+        // vec2 zeroToOne = position / u_resolution;
+        // 再把 0->1 转换 0->2
+        // vec2 zeroToTwo = zeroToOne * 2.0;
+        // 把 0->2 转换到 -1->+1 (裁剪空间)
+        // vec2 clipSpace = zeroToTwo - 1.0;
+        // gl_Position = vec4(clipSpace * vec2(1, -1), 0, 1);
+        var projectMatrix = m3.scaling(1, -1);
+        projectMatrix = m3.multiply(projectMatrix, m3.translation(-1, -1));
+        projectMatrix = m3.multiply(projectMatrix, m3.scaling(2, 2));
+        projectMatrix = m3.multiply(projectMatrix, m3.scaling(1/gl.canvas.width, 1/gl.canvas.height));
+
+        //projectMatrix = m3.projection(gl.canvas.clientWidth, gl.canvas.clientWidth);
+
+        // 计算矩阵
+        var translationMatrix = m3.translation(translation[0], translation[1]);
+        var rotationMatrix = m3.rotation(angleInRadians);
+        var scaleMatrix = m3.scaling(scale[0], scale[1]);
+
+        // 矩阵相乘
+        var matrix = m3.multiply(projectMatrix, translationMatrix);
+        matrix = m3.multiply(matrix, rotationMatrix);
+        matrix = m3.multiply(matrix, scaleMatrix);
+
+        // 设置矩阵
+        gl.uniformMatrix3fv(matrixLocation, false, matrix);
+
+        // Draw the geometry.
+        var primitiveType = gl.TRIANGLES;
+        var offset = 0;
+        var count = 18;  // 6 triangles in the 'F', 3 points per triangle
+        gl.drawArrays(primitiveType, offset, count);
+    }
+}
+
+// Fill the buffer with the values that define a letter 'F'.
+function setGeometry(gl) {
+    gl.bufferData(
+        gl.ARRAY_BUFFER,
+        new Float32Array([
+            // left column
+            0, 0,
+            30, 0,
+            0, 150,
+            0, 150,
+            30, 0,
+            30, 150,
+
+            // top rung
+            30, 0,
+            100, 0,
+            30, 30,
+            30, 30,
+            100, 0,
+            100, 30,
+
+            // middle rung
+            30, 60,
+            67, 60,
+            30, 90,
+            30, 90,
+            67, 60,
+            67, 90,
+        ]),
+        gl.STATIC_DRAW);
+}
+
+main();

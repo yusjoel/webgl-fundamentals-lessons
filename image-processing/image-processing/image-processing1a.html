@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>图像的坐标</title>
+<link type="text/css" href="../../common/webgl-tutorials.css" rel="stylesheet" />
+</head>
+<body>
+<canvas id="canvas"></canvas>
+</body>
+<!-- vertex shader -->
+<script id="2d-vertex-shader" type="x-shader/x-vertex">
+attribute vec2 a_position;
+attribute vec2 a_texCoord;
+
+uniform vec2 u_offset;
+uniform vec2 u_scale;
+
+varying vec2 v_texCoord;
+
+void main() {
+   gl_Position = vec4((a_position + u_offset) * u_scale, 0, 1);
+   v_texCoord = a_texCoord;
+}
+</script>
+<!-- fragment shader -->
+<script id="2d-fragment-shader" type="x-shader/x-fragment">
+precision mediump float;
+
+// our texture
+uniform sampler2D u_image;
+
+// the texCoords passed in from the vertex shader.
+varying vec2 v_texCoord;
+
+void main() {
+   gl_FragColor = texture2D(u_image, v_texCoord);
+}
+</script>
+
+<script src="../../common/webgl-utils.js"></script>
+<script src="image-processing1a.js"></script>
+</html>

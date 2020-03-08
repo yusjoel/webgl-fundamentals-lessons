@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>WebGL 基础概念 - 使用屏幕坐标描绘两个三角形</title>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script id="2d-vertex-shader" type="notjs">
+    // 一个属性变量，将会从缓冲中获取数据
+    attribute vec2 a_position;
+
+    uniform vec2 u_resolution;
+
+    // 所有着色器都有一个main方法
+    void main() {
+        // 从像素坐标转换到 0.0 到 1.0
+        vec2 zeroToOne = a_position / u_resolution;
+
+        // 再把 0->1 转换 0->2
+        vec2 zeroToTwo = zeroToOne * 2.0;
+
+        // 把 0->2 转换到 -1->+1 (裁剪空间)
+        vec2 clipSpace = zeroToTwo - 1.0;
+
+        gl_Position = vec4(clipSpace * vec2(1, -1), 0, 1);
+    }
+
+</script>
+
+<script id="2d-fragment-shader" type="notjs">
+
+    // 片断着色器没有默认精度，所以我们需要设置一个精度
+    // mediump是一个不错的默认值，代表“medium precision”（中等精度）
+    precision mediump float;
+
+    void main() {
+        // gl_FragColor是一个片断着色器主要设置的变量
+        gl_FragColor = vec4(1, 0, 0.5, 1); // 返回“瑞迪施紫色”
+    }
+
+</script>
+
+<script>
+    // 创建着色器方法，输入参数：渲染上下文，着色器类型，数据源
+    function createShader(gl, type, source) {
+        var shader = gl.createShader(type); // 创建着色器对象
+        gl.shaderSource(shader, source); // 提供数据源
+        gl.compileShader(shader); // 编译 -> 生成着色器
+        var success = gl.getShaderParameter(shader, gl.COMPILE_STATUS);
+        if (success) {
+            return shader;
+        }
+
+        console.log(gl.getShaderInfoLog(shader));
+        gl.deleteShader(shader);
+    }
+
+    function createProgram(gl, vertexShader, fragmentShader) {
+        var program = gl.createProgram();
+        gl.attachShader(program, vertexShader);
+        gl.attachShader(program, fragmentShader);
+        gl.linkProgram(program);
+        var success = gl.getProgramParameter(program, gl.LINK_STATUS);
+        if (success) {
+            return program;
+        }
+
+        console.log(gl.getProgramInfoLog(program));
+        gl.deleteProgram(program);
+    }
+
+    var canvas = document.getElementById("c");
+    var gl = canvas.getContext("webgl");
+
+    var vertexShaderSource = document.getElementById("2d-vertex-shader").text;
+    var fragmentShaderSource = document.getElementById("2d-fragment-shader").text;
+
+    var vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
+    var fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
+    var program = createProgram(gl, vertexShader, fragmentShader);
+
+    var positionAttributeLocation = gl.getAttribLocation(program, "a_position");
+    var resolutionUniformLocation = gl.getUniformLocation(program, "u_resolution");
+
+    var positionBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+
+    // 6个二维点坐标
+    var positions = [
+        10, 20,
+        80, 20,
+        10, 30,
+        10, 30,
+        80, 20,
+        80, 30,
+    ];
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
+
+    gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+
+    // 清空画布
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+
+    // 告诉它用我们之前写好的着色程序（一个着色器对）
+    gl.useProgram(program);
+
+    // 设置全局变量 分辨率
+    gl.uniform2f(resolutionUniformLocation, gl.canvas.width, gl.canvas.height);
+
+    gl.enableVertexAttribArray(positionAttributeLocation);
+
+    // 这里为什么又绑定了一次?
+    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+
+    // 告诉属性怎么从positionBuffer中读取数据 (ARRAY_BUFFER)
+    var size = 2;          // 每次迭代运行提取两个单位数据
+    var type = gl.FLOAT;   // 每个单位的数据类型是32位浮点型
+    var normalize = false; // 不需要归一化数据
+    var stride = 0;        // 0 = 移动单位数量 * 每个单位占用内存（sizeof(type)）
+                           // 每次迭代运行运动多少内存到下一个数据开始点
+    var offset = 0;        // 从缓冲起始位置开始读取
+    gl.vertexAttribPointer(
+        positionAttributeLocation, size, type, normalize, stride, offset);
+
+    var primitiveType = gl.TRIANGLES;
+    var offset = 0;
+    var count = 6;
+    gl.drawArrays(primitiveType, offset, count);
+
+</script>
+</body>
+</html>
