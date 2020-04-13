@@ -5,7 +5,7 @@
  * @param y {number}
  * @param z {number}
  */
-let v3 = function (x, y, z) {
+let v3 = function (x = 0, y = 0, z = 0) {
     /**
      * X
      * @type {number}
@@ -23,6 +23,10 @@ let v3 = function (x, y, z) {
      * @type {number}
      */
     this.z = z;
+};
+
+v3.prototype.toString = function(){
+    return '(' + this.x + ', ' + this.y + ', ' + this.z + ")";
 };
 
 /**
@@ -47,3 +51,48 @@ v3.prototype.normalize = function () {
     }
 };
 
+/**
+ * 减法
+ * @param other {v3}
+ */
+v3.prototype.substract = function (other) {
+    this.x -= other.x;
+    this.y -= other.y;
+    this.z -= other.z;
+    return this;
+};
+
+/**
+ * 加法
+ * @param other {v3}
+ */
+v3.prototype.add = function (other) {
+    this.x += other.x;
+    this.y += other.y;
+    this.z += other.z;
+    return this;
+};
+
+/**
+ * 点乘
+ * @param other {v3}
+ */
+v3.prototype.dot = function (other) {
+    return this.x * other.x + this.y * other.y + this.z * other.z;
+};
+
+/**
+ * 叉乘
+ * @param other
+ */
+v3.prototype.cross = function (other) {
+    let x = this.y * other.z - this.z * other.y;
+    let y = -this.x * other.z + this.z * other.x;
+    let z = this.x * other.y - this.y * other.x;
+    this.x = x;
+    this.y = y;
+    this.z = z;
+    return this;
+};
+
+module.exports = {v3};
