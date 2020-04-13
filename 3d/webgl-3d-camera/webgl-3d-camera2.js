@@ -412,7 +412,6 @@ function vectors(x, y, z) {
     this.z = z;
 
     this.normalize = function () {
-        if(this.x === 0 && this.y === )
         let squareRoot = Math.sqrt(this.x*this.x+this.y*this.y+this.z*this.z);
 
     }
