@@ -1,8 +1,7 @@
-/*
-//import {m4} from '3d/webgl-3d-camera/webgl-3d-camera1'
 let { m4 } = require('../3d/webgl-3d-camera/webgl-3d-camera1.js');
+let assert = require('assert');
+const {describe, it} = require("mocha");
 
-var assert = require('assert');
 describe('m4', function() {
     describe('#minor()', function() {
         var m = m4.transpose([
@@ -77,4 +76,4 @@ describe('m4', function() {
         });
     });
 });
-*/
+

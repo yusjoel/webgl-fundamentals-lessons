@@ -630,6 +630,7 @@ var m4 = {
     }
 };
 
-main();
-
-//module.exports = {m4};
+if(module)
+    module.exports = {m4};
+else
+    main();

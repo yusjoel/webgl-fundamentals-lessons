@@ -100,8 +100,15 @@ function main() {
         gl.vertexAttribPointer(colorLocation, size, type, normalize, stride, offset);
 
         // 计算摄像机的TRS
-        var cameraMatrix = m4.yRotation(cameraAngle * Math.PI / 180);
-        cameraMatrix = m4.multiply(cameraMatrix, m4.translation(0, 0, cameraDistance));
+        // var cameraMatrix = m4.yRotation(cameraAngle * Math.PI / 180);
+        // cameraMatrix = m4.multiply(cameraMatrix, m4.translation(0, 0, cameraDistance));
+        let cameraAngleInRadian = cameraAngle * Math.PI / 180;
+        let cosine = Math.cos(cameraAngleInRadian);
+        let sine = Math.sin(cameraAngleInRadian);
+        let cameraPosition = new v3(cameraDistance * cosine, 0, cameraDistance * sine);
+        let targetPosition = new v3(0, 0, 0);
+        let up = new v3(0, 1, 0);
+        var cameraMatrix = m4.lookAt(cameraPosition, targetPosition, up);
 
         // 计算视口变换矩阵
         var viewMatrix = m4.inverse(cameraMatrix);
@@ -406,17 +413,6 @@ function setColors(gl) {
         gl.STATIC_DRAW);
 }
 
-function vectors(x, y, z) {
-    this.x = x;
-    this.y = y;
-    this.z = z;
-
-    this.normalize = function () {
-        let squareRoot = Math.sqrt(this.x*this.x+this.y*this.y+this.z*this.z);
-
-    }
-}
-
 var m4 = {
     perspective: function (near, far, fieldOfView, aspect) {
         var tan = Math.tan(fieldOfView / 2);
@@ -578,9 +574,25 @@ var m4 = {
         return mm;
     },
 
+    /**
+     * 计算摄像机的LookAt矩阵
+     * @param cameraPosition {v3}
+     * @param targetPosition {v3}
+     * @param up {v3}
+     * @return {[]}
+     */
     lookAt: function(cameraPosition, targetPosition, up) {
-
-    }
+        // 镜头方向是-z
+        let forward = v3.subtract(cameraPosition, targetPosition).normalize();
+        up.normalize();
+        let right = v3.cross(up, forward);
+        return [
+            right.x, right.y, right.z, 0,
+            up.x, up.y, up.z, 0,
+            forward.x, forward.y, forward.z, 0,
+            cameraPosition.x, cameraPosition.y, cameraPosition.z, 1
+        ];
+    },
 
     transpose: function (m) {
         return [
