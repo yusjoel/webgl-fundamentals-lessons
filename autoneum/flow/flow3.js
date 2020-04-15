@@ -1,7 +1,7 @@
 "use strict";
 
 let vertexShader = `
-attribute vec4 position;
+attribute vec3 position;
 attribute vec3 previous;
 attribute vec3 next;
 attribute vec2 uv;
@@ -10,10 +10,47 @@ attribute float side;
 attribute float width;
 attribute float lineIndex;
 
+uniform vec2 resolution;
 uniform mat4 u_matrix;
 
+vec2 when_eq(vec2 x, vec2 y) {
+    return 1.0 - abs(sign(x - y));
+}
+
+vec2 fix(vec4 i, float aspect) {
+    vec2 res = i.xy / i.w;
+    res.x *= aspect;
+    return res;
+}
+
 void main() {
-  gl_Position = u_matrix * position;
+    float aspect = resolution.x / resolution.y;
+    
+    vec3 pos = position;
+    vec3 prevPos = previous;
+    vec3 nextPos = next;
+
+    vec4 finalPosition = u_matrix * vec4(pos, 1.0);
+    vec4 pPos = u_matrix * vec4(prevPos, 1.0);
+    vec4 nPos = u_matrix * vec4(nextPos, 1.0);
+    
+    vec2 currentP = fix(finalPosition, aspect);
+    vec2 prevP = fix(pPos, aspect);
+    vec2 nextP = fix(nPos, aspect);
+    
+    vec2 dirNC = normalize(currentP - prevP);
+    vec2 dirPC = normalize(nextP - currentP);
+    vec2 dir1 = normalize(currentP - prevP);
+    vec2 dir2 = normalize(nextP - currentP);
+    vec2 dirF = normalize(dir1 + dir2);
+    vec2 dirM = mix(dirPC, dirNC, when_eq(nextP, currentP));
+    vec2 dir = mix(dirF, dirM, clamp(when_eq(nextP, currentP) + when_eq(prevP, currentP), 0.0, 1.0));
+    vec2 normal = vec2(-dir.y, dir.x);
+    normal.x /= aspect;
+    
+    normal *= 0.5 * width;
+    finalPosition.xy += normal * side;
+    gl_Position = finalPosition;
 }
 `;
 
@@ -120,10 +157,16 @@ function Curve(shader, lineIndex, points) {
      */
     this.indices = null;
 
-    this.getPosition = function  (index) {
+    /**
+     * 网格模式
+     * @type {Uint16Array}
+     */
+    this.meshIndices = null;
+
+    this.getPosition = function (index) {
         let i = index * 3;
         return new v3(this.points[i], this.points[i + 1], this.points[i + 2]);
-    }
+    };
 
     /**
      * Add an attribute
@@ -138,7 +181,7 @@ function Curve(shader, lineIndex, points) {
         let attribute = this.shader.attributes[attributeName];
         let elements = attributeElements[attributeName];
         this.attributes.push(new Attribute(attributeName, attribute.location, attribute.buffer, elements, size));
-    }
+    };
 
     this.initialize = function () {
         let attributeElements = {};
@@ -171,9 +214,9 @@ function Curve(shader, lineIndex, points) {
             let currentPosition = this.getPosition(i);
             let previousPosition = this.getPosition(Math.max(0, i - 1));
             let nextPosition = this.getPosition(Math.min(this.count - 1, i + 1));
-            if(i === 0)
+            if (i === 0)
                 previousPosition.subtract(v3.subtract(nextPosition, previousPosition));
-            if(i === this.count - 1)
+            if (i === this.count - 1)
                 nextPosition.add(v3.subtract(nextPosition, previousPosition));
 
             addVector('position', currentPosition);
@@ -193,7 +236,7 @@ function Curve(shader, lineIndex, points) {
             let currentPosition = this.getPosition(i);
             let previousPosition = this.getPosition(Math.max(0, i - 1));
             let nextPosition = this.getPosition(Math.min(this.count - 1, i + 1));
-            if(i === 0)
+            if (i === 0)
                 previousPosition.subtract(v3.subtract(nextPosition, previousPosition));
             currentLength += v3.distance(currentPosition, previousPosition);
 
@@ -203,45 +246,71 @@ function Curve(shader, lineIndex, points) {
             addXY('uv2', currentLength, curveLength);
             addXY('uv2', currentLength, curveLength);
 
-            addXY('width', 0.5, 0.5);
+            addXY('width', 0.2, 0.2);
             addXY('side', 1, -1);
             addXY('lineIndex', this.lineIndex, this.lineIndex);
         }
 
 
-        this.addAttribute(attributeElements,'position', 3);
-        this.addAttribute(attributeElements,'previous', 3);
-        this.addAttribute(attributeElements,'next', 3);
+        this.addAttribute(attributeElements, 'position', 3);
+        this.addAttribute(attributeElements, 'previous', 3);
+        this.addAttribute(attributeElements, 'next', 3);
 
-        this.addAttribute(attributeElements,'uv', 2);
-        this.addAttribute(attributeElements,'uv2', 2);
+        this.addAttribute(attributeElements, 'uv', 2);
+        this.addAttribute(attributeElements, 'uv2', 2);
 
-        this.addAttribute(attributeElements,'side', 1);
-        this.addAttribute(attributeElements,'lineIndex', 1);
-        this.addAttribute(attributeElements,'width', 1);
+        this.addAttribute(attributeElements, 'side', 1);
+        this.addAttribute(attributeElements, 'lineIndex', 1);
+        this.addAttribute(attributeElements, 'width', 1);
 
-        let indexElements = [];
-        for (let i = 0; i < this.count - 1; i++) {
-            indexElements.push(i * 2);
-            indexElements.push(i * 2 + 1);
-            indexElements.push(i * 2 + 2);
-            indexElements.push(i * 2 + 2);
-            indexElements.push(i * 2 + 1);
-            indexElements.push(i * 2 + 3);
+        {
+            let indexElements = [];
+            for (let i = 0; i < this.count - 1; i++) {
+                indexElements.push(i * 2);
+                indexElements.push(i * 2 + 1);
+                indexElements.push(i * 2 + 2);
+                indexElements.push(i * 2 + 2);
+                indexElements.push(i * 2 + 1);
+                indexElements.push(i * 2 + 3);
+            }
+
+            this.indices = new Uint16Array(indexElements);
         }
 
-        this.indices = new Uint16Array(indexElements);
-    }
+        {
+            let indexElements = [];
+            for (let i = 0; i < this.count - 1; i++) {
+                indexElements.push(i * 2);
+                indexElements.push(i * 2 + 1);
+                indexElements.push(i * 2 + 1);
+                indexElements.push(i * 2 + 2);
+                indexElements.push(i * 2 + 2);
+                indexElements.push(i * 2);
+
+                indexElements.push(i * 2 + 2);
+                indexElements.push(i * 2 + 1);
+                indexElements.push(i * 2 + 1);
+                indexElements.push(i * 2 + 3);
+                indexElements.push(i * 2 + 3);
+                indexElements.push(i * 2 + 2);
+            }
+
+            this.meshIndices = new Uint16Array(indexElements);
+        }
+    };
 
     /**
-     *
      * @param gl {WebGLRenderingContext}
-     * @param uniforms
      */
-    this.draw = function (gl, uniforms) {
+    this.prepareDraw = function (gl) {
+        gl.useProgram(this.shader.program);
+    };
 
-        this.shader.use(gl);
-
+    /**
+     * 正常描绘
+     * @param gl {WebGLRenderingContext}
+     */
+    this.draw = function (gl) {
         // Attributes
         let attributeLength = this.attributes.length;
         for (let i = 0; i < attributeLength; i++) {
@@ -249,26 +318,41 @@ function Curve(shader, lineIndex, points) {
             attribute.fillBuffer(gl);
         }
 
-        // Uniforms
-        for (let uniformName in uniforms) {
-            /**
-             * @type {ShaderProgramUniform}
-             */
-            let uniform = this.shader.uniforms[uniformName];
-            gl.uniformMatrix4fv(uniform.location, false, uniforms[uniformName]);
-        }
-
         // Index
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.shader.indexBuffer);
         gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, this.indices, gl.STATIC_DRAW);
 
         // 描绘线段
-        let primitiveType = gl.LINE_STRIP;
+        let primitiveType = gl.TRIANGLES;
         let offset = 0;
         let count = (this.count - 1) * 6;
         let indexType = gl.UNSIGNED_SHORT;
         gl.drawElements(primitiveType, count, indexType, offset);
-    }
+    };
+
+    /**
+     * 描绘网格
+     * @param gl {WebGLRenderingContext}
+     */
+    this.drawMesh = function (gl) {
+        // Attributes
+        let attributeLength = this.attributes.length;
+        for (let i = 0; i < attributeLength; i++) {
+            let attribute = this.attributes[i];
+            attribute.fillBuffer(gl);
+        }
+
+        // Index
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.shader.indexBuffer);
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, this.meshIndices, gl.STATIC_DRAW);
+
+        // 描绘网格
+        let primitiveType = gl.LINES;
+        let offset = 0;
+        let count = (this.count - 1) * 12;
+        let indexType = gl.UNSIGNED_SHORT;
+        gl.drawElements(primitiveType, count, indexType, offset);
+    };
 
     this.initialize();
 }
@@ -322,32 +406,18 @@ function Shader(gl, shaders, attributeNames, uniformNames) {
     }
 
     length = uniformNames.length;
-    for (let i = 0; i < length; i++){
+    for (let i = 0; i < length; i++) {
         let uniformName = uniformNames[i];
         let location = gl.getUniformLocation(this.program, uniformName);
         this.uniforms[uniformName] = new ShaderProgramUniform(uniformName, location);
-    }
-
-    /**
-     *
-     * @param gl {WebGLRenderingContext}
-     */
-    this.use = function (gl) {
-        gl.useProgram(this.program);
-    }
-
-    /**
-     *
-     * @param gl {WebGLRenderingContext}
-     */
-    this.draw = function (gl) {
-
     }
 }
 
 function main() {
     // Get A WebGL context
     let canvas = document.getElementById("canvas");
+    canvas.style.width = '1600px';
+    canvas.style.height = '900px';
     let gl = canvas.getContext("webgl");
     if (!gl) {
         return;
@@ -365,7 +435,7 @@ function main() {
         'uv',
         'uv2'
     ];
-    let uniformNames = ['u_matrix'];
+    let uniformNames = ['u_matrix', 'resolution'];
     let shader = new Shader(gl, shaders, attributeNames, uniformNames);
 
     let near = -1;
@@ -379,6 +449,7 @@ function main() {
     let cameraYawAngle = 0;
     let cameraPitchAngle = 50;
     let cameraDistance = 10;
+    let drawShade = true;
 
     // create curves
     let curves = [];
@@ -393,9 +464,23 @@ function main() {
     // Setup a ui.
     webglLessonsUI.setupSlider("#targetX", {value: targetX, slide: updatePivotX, min: -10, max: 10});
     webglLessonsUI.setupSlider("#targetZ", {value: targetZ, slide: updatePivotY, min: -10, max: 10});
-    webglLessonsUI.setupSlider("#cameraDistance", {value: cameraDistance, slide: updateCameraDistance, min: 1, max: 15});
+    webglLessonsUI.setupSlider("#cameraDistance", {
+        value: cameraDistance,
+        slide: updateCameraDistance,
+        min: 1,
+        max: 15
+    });
     webglLessonsUI.setupSlider("#cameraYawAngle", {value: cameraYawAngle, slide: updateCameraYawAngle, max: 360});
     webglLessonsUI.setupSlider("#cameraPitchAngle", {value: cameraPitchAngle, slide: updateCameraPitchAngle, max: 89});
+
+    const uiElem = document.querySelector("#ui");
+    let checkbox = webglLessonsUI.makeCheckbox({name: "Shade/Mesh", value: drawShade, change: updateDrawMode});
+    uiElem.appendChild(checkbox.elem);
+
+    function updateDrawMode(e, ui) {
+        drawShade = ui.value;
+        drawScene();
+    }
 
     function updatePivotX(e, ui) {
         targetX = ui.value;
@@ -456,13 +541,22 @@ function main() {
         for (let i in curves) {
             let curve = curves[i];
 
+            curve.prepareDraw(gl);
+
             // 设置矩阵
             let projectMatrix = m4.perspective(near, far, fieldOfViewInRadians, aspect);
             let matrix = m4.multiply(projectMatrix, viewMatrix);
+            let uniform = curve.shader.uniforms['u_matrix'];
+            gl.uniformMatrix4fv(uniform.location, false, matrix);
 
-            curve.draw(gl, {u_matrix: matrix});
+            // 设置分辨率
+            uniform = curve.shader.uniforms['resolution'];
+            gl.uniform2f(uniform.location, canvas.clientWidth, canvas.clientHeight);
 
-
+            if(drawShade)
+                curve.draw(gl);
+            else
+                curve.drawMesh(gl);
         }
     }
 }
