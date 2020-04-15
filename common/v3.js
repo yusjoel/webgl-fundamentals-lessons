@@ -164,5 +164,19 @@ v3.cross = function (a, b) {
     return new v3(x, y, z);
 }
 
-if(module)
-    module.exports = {v3};
+/**
+ * 距离
+ * @param a {v3}
+ * @param b {v3}
+ */
+v3.distance = function (a, b) {
+    let x = a.x - b.x;
+    let y = a.y - b.y;
+    let z = a.z - b.z;
+    let square = x*x+y*y+z*z;
+    let distance = Math.sqrt(square);
+    return distance;
+}
+
+// if(!window)
+//     module.exports = {v3};
