@@ -11,8 +11,19 @@ attribute float width;
 attribute float lineIndex;
 
 uniform vec2 resolution;
+uniform float time;
 uniform mat4 u_matrix;
 uniform float uTurn;
+uniform float uRoll;
+
+highp float random(vec2 co) {
+    highp float a = 12.9898;
+    highp float b = 78.233;
+    highp float c = 43758.5453;
+    highp float dt = dot(co.xy, vec2(a, b));
+    highp float sn = mod(dt, 3.14);
+    return fract(sin(sn) * c);
+}
 
 vec2 when_eq(vec2 x, vec2 y) {
     return 1.0 - abs(sign(x - y));
@@ -22,6 +33,13 @@ vec2 fix(vec4 i, float aspect) {
     vec2 res = i.xy / i.w;
     res.x *= aspect;
     return res;
+}
+
+void randomCurveStarts(inout vec3 pos, float r) {
+    float strength = smoothstep(1.5, 30.0, pos.z * pos.z);
+    float rand = sin((r * 0.5 + 0.5) * time * 0.2 + uRoll * 0.8 + r * 3.14) * (r * 0.5 + 0.5) * 0.3;
+    pos.y += rand * strength * 1.2;
+    pos.x += rand * strength * 0.5;
 }
 
 void turnCurves(inout vec3 pos) {
@@ -36,6 +54,12 @@ void main() {
     vec3 pos = position;
     vec3 prevPos = previous;
     vec3 nextPos = next;
+    
+    // randomise starts of curves
+    float vRandom = random(vec2(lineIndex + 2.3));
+    randomCurveStarts(pos, vRandom);
+    randomCurveStarts(prevPos, vRandom);
+    randomCurveStarts(nextPos, vRandom);
     
     // Turn curves to face direction
     turnCurves(pos);
@@ -447,7 +471,7 @@ function main() {
         'uv',
         'uv2'
     ];
-    let uniformNames = ['u_matrix', 'resolution', 'uTurn'];
+    let uniformNames = ['u_matrix', 'resolution', 'time', 'uTurn', 'uRoll'];
     let shader = new Shader(gl, shaders, attributeNames, uniformNames);
 
     let near = -1;
@@ -462,7 +486,9 @@ function main() {
     let cameraPitchAngle = 50;
     let cameraDistance = 10;
     let drawShade = true;
-    let turn = 1;
+    let turn = 0;
+    let roll = 0;
+    let time = 0;
 
     // create curves
     let curves = [];
@@ -485,14 +511,26 @@ function main() {
     });
     webglLessonsUI.setupSlider("#cameraYawAngle", {value: cameraYawAngle, slide: updateCameraYawAngle, max: 360});
     webglLessonsUI.setupSlider("#cameraPitchAngle", {value: cameraPitchAngle, slide: updateCameraPitchAngle, max: 89});
-    webglLessonsUI.setupSlider("#turn", {value: turn, slide: updateTurn, max: 1});
+    webglLessonsUI.setupSlider("#time", {value: time, slide: updateTime, max: 150});
+    webglLessonsUI.setupSlider("#turn", {value: turn, slide: updateTurn, max: 1, step: 0.1});
+    webglLessonsUI.setupSlider("#roll", {value: roll, slide: updateRoll, max: 1, step: 0.1});
 
     const uiElem = document.querySelector("#ui");
     let checkbox = webglLessonsUI.makeCheckbox({name: "Shade/Mesh", value: drawShade, change: updateDrawMode});
     uiElem.appendChild(checkbox.elem);
 
+    function updateTime(e, ui) {
+        time = ui.value;
+        drawScene();
+    }
+
     function updateTurn(e, ui) {
         turn = ui.value;
+        drawScene();
+    }
+
+    function updateRoll(e, ui) {
+        roll = ui.value;
         drawScene();
     }
 
@@ -572,9 +610,17 @@ function main() {
             uniform = curve.shader.uniforms['resolution'];
             gl.uniform2f(uniform.location, canvas.clientWidth, canvas.clientHeight);
 
+            // 设置时间
+            uniform = curve.shader.uniforms['time'];
+            gl.uniform1f(uniform.location, time);
+
             // 设置Turn
             uniform = curve.shader.uniforms['uTurn'];
             gl.uniform1f(uniform.location, turn);
+
+            // 设置Roll
+            uniform = curve.shader.uniforms['uRoll'];
+            gl.uniform1f(uniform.location, roll);
 
             if(drawShade)
                 curve.draw(gl);
