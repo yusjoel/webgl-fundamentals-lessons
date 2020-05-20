@@ -728,7 +728,7 @@ function main() {
         gl.enable(gl.DEPTH_TEST);
 
         // Clear the canvas.
-        //gl.clearColor(0.2, 0.2, 0.2, 1);
+        gl.clearColor(0.2, 0.2, 0.2, 1);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
         // 计算摄像机的变换矩阵

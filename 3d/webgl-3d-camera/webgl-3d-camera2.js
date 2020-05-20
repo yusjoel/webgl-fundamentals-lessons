@@ -546,8 +546,8 @@ var m4 = {
      */
     cofactor: function (m, i, j) {
         let c = this.determinant(this.minor(m, i, j));
-        if(c == 0) return 0;
-        if ((i + j) % 2 == 0)
+        if(c === 0) return 0;
+        if ((i + j) % 2 === 0)
             return c;
         else
             return -c;
